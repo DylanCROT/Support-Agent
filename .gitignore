@@ -1,0 +1,5 @@
+.env
+MEMORY.md
+investigations/*/data/
+node_modules/
+*.log

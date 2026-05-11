@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "atlassian": {
+      "type": "sse",
+      "url": "https://mcp.atlassian.com/v1/sse"
+    },
+    "bitbucket": {
+      "type": "stdio",
+      "command": "C:/Program Files/nodejs/node.exe",
+      "args": [
+        "C:/My claude code assistants/po-assistant/scripts/mcp-launcher.js",
+        "C:/Program Files/nodejs/node.exe",
+        "C:/Users/DylanCr/AppData/Roaming/npm/node_modules/bitbucket-mcp/dist/index.js"
+      ]
+    },
+    "github-salesforce": {
+      "type": "stdio",
+      "command": "C:/Program Files/nodejs/node.exe",
+      "args": [
+        "C:/My claude code assistants/po-assistant/scripts/mcp-launcher.js",
+        "C:/Program Files/nodejs/node.exe",
+        "C:/Users/DylanCr/AppData/Roaming/npm/node_modules/@modelcontextprotocol/server-github/dist/index.js"
+      ]
+    }
+  }
+}
