@@ -1,68 +1,60 @@
 # Support Agent
 
-A Claude Code project that runs a daily root-cause triage pass over Dylan's Jira support queue.
+A Claude Code project that investigates Salesforce support tickets on the REC board in status `REFERRED TO PRODUCT OWNER`, assigned to Dylan, and drafts root-cause Jira comments for review.
 
-## What it does
+**Status:** Phase 0 (design). See `PROGRESS.md`.
 
-When you run `/daily-triage` inside Claude Code in this folder, the agent:
+## What it does (v1)
 
-1. Queries Jira (Atlassian MCP) for every **REC** ticket in status **`REFERRED TO PRODUCT OWNER`** assigned to Dylan.
-2. Lists them and asks which to investigate.
-3. For each chosen ticket, spawns a `ticket-investigator` subagent that:
-   - Reads the ticket and forms ranked hypotheses
-   - Pulls Salesforce data via the `sf` CLI (read-only SOQL only)
-   - Reads the Salesforce repo via the `github-salesforce` MCP (read-only)
-   - Writes structured findings to `investigations/<date>/<KEY>.md`
-4. Shows you each finding and asks per-ticket whether to post it as an internal Jira comment via `addCommentToJiraIssue`.
-5. Writes a run summary to `investigations/<date>/_summary.md`.
+You invoke it with a Jira URL:
 
-**The agent never writes to Salesforce, never edits code, and never edits Jira tickets — its only side-effect is posting comments you approve.**
+```
+/investigate https://vat-it.atlassian.net/browse/REC-1234
+```
+
+The agent then:
+
+1. Fetches the ticket via the Atlassian MCP.
+2. Classifies it as **bug** / **data anomaly** / **permission request** / **out-of-scope**.
+3. Loads the matching playbook from `playbooks/`.
+4. Investigates against Salesforce data (read-only `sf data query`) and the Salesforce codebase (read-only `github-salesforce` MCP).
+5. Asks you when it hits a gap — captures your answer into a playbook / glossary / example file.
+6. Drafts a Jira comment at `investigations/YYYY-MM-DD/<KEY>.md`.
+7. Shows the draft and asks **post / edit / discard**.
+
+The agent never writes to Salesforce, never edits code, and never edits Jira state except for posting a single comment after your approval.
+
+**One ticket per invocation.** Batch and scheduled modes are explicitly out of scope.
+
+## Repo map
+
+| Path | Purpose |
+|------|---------|
+| `CLAUDE.md` | Rules and pointers. Minimal — no embedded domain knowledge. |
+| `PROGRESS.md` | Build phase tracker. Update each session. |
+| `docs/superpowers/specs/` | Design specs. Start with `2026-05-12-support-agent-design.md`. |
+| `playbooks/` | One markdown file per in-scope ticket type. Grow over time. |
+| `glossary/` | One file per domain term. Grow over time. |
+| `examples/` | One file per resolved ticket worth referencing. Grow over time. |
+| `investigations/` | Per-run draft comments. `YYYY-MM-DD/<KEY>.md`. |
+| `framework-log/` | Audit trail — ADRs, session logs, and a reusable "build phases" guide for future agents. |
+| `.claude/settings.json` | Permission deny-list enforcing the read-only rules. |
+| `.mcp.json` | MCP server config (Atlassian, github-salesforce, bitbucket). |
 
 ## Prerequisites
 
 - Claude Code installed and authenticated.
-- `sf` CLI installed at `C:\Program Files\sf\bin\sf.cmd`, authenticated as `dylancr@vatit.com` (run `sf org login web -a dylancr@vatit.com` if not).
+- `sf` CLI at `C:\Program Files\sf\bin\sf.cmd`, authenticated as `dylancr@vatit.com` (`sf org login web -a dylancr@vatit.com`).
 - Node.js 18+ at `C:\Program Files\nodejs\node.exe`.
-- npm globals installed (these are shared with the po-assistant repo):
-  - `npm install -g bitbucket-mcp`
-  - `npm install -g @modelcontextprotocol/server-github`
-- `.env` populated in this folder — copy `.env.example` and fill in `BITBUCKET_TOKEN` and `GITHUB_TOKEN` (same values as po-assistant's `.env`).
-- Atlassian MCP authenticated in Claude Code (it's an OAuth/SSE server — first use will trigger the auth flow).
+- `.env` populated — copy `.env.example` and fill in `BITBUCKET_TOKEN` and `GITHUB_TOKEN`.
+- Atlassian MCP authenticated in Claude Code (first use will trigger the OAuth flow).
 
-## Knowledge base
+## Building this agent
 
-This repo intentionally does not duplicate the company knowledge files. `CLAUDE.md` imports them by absolute path from `C:/My claude code assistants/po-assistant/knowledge/`. Keep those up to date in po-assistant; they flow into the Support Agent automatically.
+This project is also a worked example of *how to build an agent like this*. The `framework-log/` folder captures the build process as a reusable framework:
 
-## How to run
+- `framework-log/README.md` — the phases (brainstorm → spec → refactor → plan → bootstrap → distil → steady-state).
+- `framework-log/decisions/` — ADRs for each material design choice.
+- `framework-log/sessions/` — one file per working session.
 
-From inside this folder:
-
-```
-claude
-> /daily-triage
-```
-
-That's it. The command walks you through the rest interactively.
-
-## Outputs
-
-```
-investigations/
-  2026-05-11/
-    REC-1234.md          ← per-ticket findings (becomes the Jira comment body)
-    REC-1235.md
-    _summary.md          ← run rollup
-    _observations.md     ← (optional) cross-ticket patterns
-    data/                ← raw SOQL exports if any; gitignored
-```
-
-## Graduating to a scheduled run
-
-Stay manual until findings are consistently useful (target: >70% of investigations posted as-is without edits). Then promote to either:
-
-- **`/schedule`** (cloud cron) — works only if Salesforce data access stops needing the local `sf` CLI (e.g. via a Salesforce MCP), since cloud runners have no local CLI.
-- **Windows Task Scheduler** — local; can keep using the `sf` CLI.
-
-## Architecture
-
-See `CLAUDE.md` for the role definition and hard rules, `.claude/commands/daily-triage.md` for the orchestrator, and `.claude/agents/ticket-investigator.md` for the per-ticket investigator.
+If you're starting a new agent project, copy that structure and use the same phases.
